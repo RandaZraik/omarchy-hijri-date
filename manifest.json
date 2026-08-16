@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.randazraik.hijri-date",
+  "name": "Hijri Date",
+  "version": "0.2.0",
+  "author": "Randa Zraik",
+  "license": "MIT",
+  "description": "A multilingual Umm al-Qura Hijri date and calendar for the Omarchy bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Hijri Date",
+    "description": "Umm al-Qura Hijri date with a multilingual month calendar.",
+    "category": "Time",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "language": "Auto",
+      "numerals": "Native",
+      "format": "Full",
+      "showWeekday": false,
+      "dayOffset": 0,
+      "weekStart": "Auto",
+      "markers": "Major dates",
+      "barMarker": "Off",
+      "panelPosition": "Anchored",
+      "fontFamily": ""
+    },
+    "schema": [
+      {
+        "key": "language",
+        "type": "enum",
+        "label": "Language",
+        "options": ["Auto", "English", "العربية", "Türkçe", "বাংলা"],
+        "defaultValue": "Auto"
+      },
+      {
+        "key": "numerals",
+        "type": "enum",
+        "label": "Numerals",
+        "options": ["Native", "Latin"],
+        "defaultValue": "Native"
+      },
+      {
+        "key": "format",
+        "type": "enum",
+        "label": "Bar format",
+        "options": ["Full", "Compact", "Numeric", "Month and day"],
+        "defaultValue": "Full"
+      },
+      {
+        "key": "showWeekday",
+        "type": "boolean",
+        "label": "Show weekday",
+        "defaultValue": false
+      },
+      {
+        "key": "dayOffset",
+        "type": "integer",
+        "label": "Local day adjustment",
+        "description": "Adjust by -2 to +2 days when your local crescent-sighting authority differs from Umm al-Qura.",
+        "min": -2,
+        "max": 2,
+        "step": 1,
+        "defaultValue": 0
+      },
+      {
+        "key": "weekStart",
+        "type": "enum",
+        "label": "Week starts on",
+        "options": ["Auto", "Saturday", "Sunday", "Monday"],
+        "defaultValue": "Auto"
+      },
+      {
+        "key": "markers",
+        "type": "enum",
+        "label": "Islamic date markers",
+        "description": "Show major dates only, or also opt-in traditional observances and the White Days.",
+        "options": ["Major dates", "Major + traditional", "Off"],
+        "defaultValue": "Major dates"
+      },
+      {
+        "key": "barMarker",
+        "type": "enum",
+        "label": "Today's marker in bar",
+        "description": "Show a dot or the localized occasion name beside today's Hijri date. Vertical bars use a dot.",
+        "options": ["Off", "Dot", "Name"],
+        "defaultValue": "Off"
+      },
+      {
+        "key": "panelPosition",
+        "type": "enum",
+        "label": "Panel position",
+        "options": ["Anchored", "Centered"],
+        "defaultValue": "Anchored"
+      },
+      {
+        "key": "fontFamily",
+        "type": "string",
+        "label": "Font family",
+        "description": "Leave empty to inherit the Omarchy bar font.",
+        "defaultValue": ""
+      }
+    ]
+  }
+}
