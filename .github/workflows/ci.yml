@@ -18,4 +18,6 @@ jobs:
         with:
           node-version: 24
       - name: Run tests
-        run: node --test tests/*.test.js
+        run: |
+          node --check tests/check-upstream.js
+          node --test tests/*.test.js

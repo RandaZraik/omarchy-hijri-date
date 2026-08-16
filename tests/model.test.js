@@ -1,19 +1,25 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8");
-const model = {};
-vm.createContext(model);
-vm.runInContext(source, model, { filename: "Model.js" });
+const source = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8")
+  .replace(/^\.pragma library\s*\n/, "");
+
+function loadModel() {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(source, context, { filename: "Model.js" });
+  return context;
+}
+
+const model = loadModel();
 
 const official = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "official-references.json"), "utf8")
+  fs.readFileSync(path.join(__dirname, "..", "calendar-data.json"), "utf8")
 );
 const manifest = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "manifest.json"), "utf8")
@@ -31,6 +37,12 @@ function gregorianYmd(value) {
   return [value.year, value.month, value.day];
 }
 
+function shiftGregorian(parts, days, conversionModel = model) {
+  return gregorianYmd(conversionModel.rjdToGregorian(
+    conversionModel.gregorianToRjd(...parts) + days
+  ));
+}
+
 function settingOptions(key) {
   return manifest.barWidget.schema.find(entry => entry.key === key).options;
 }
@@ -38,7 +50,10 @@ function settingOptions(key) {
 test("matches every month in the pinned KACST snapshot", () => {
   assert.equal(official.firstHijriYear, model.MIN_HIJRI_YEAR);
   assert.equal(official.lastHijriYear, model.MAX_HIJRI_YEAR);
-  assert.equal(official.monthLengths.length, 183);
+  assert.equal(
+    official.monthLengths.length,
+    official.lastHijriYear - official.firstHijriYear + 1
+  );
 
   const expectedCodes = official.monthLengths.flatMap((entry, yearIndex) => {
     assert.equal(entry.year, model.MIN_HIJRI_YEAR + yearIndex,
@@ -52,16 +67,12 @@ test("matches every month in the pinned KACST snapshot", () => {
   }).join("");
 
   assert.equal(model.MONTH_LENGTH_CODES, expectedCodes);
-  assert.equal(
-    crypto.createHash("sha256").update(model.MONTH_LENGTH_CODES).digest("hex"),
-    "fe3726b8e8be0a2ce65d9d13f9276bc464709a200646b652bba7d07685488789"
-  );
 
   const starts = model.monthStarts();
-  assert.equal(starts.length, 2197);
-  assert.equal(starts[0], 15140);
-  assert.equal(starts.at(-1), 79990);
-  let expectedYearStart = 15140;
+  assert.equal(starts.length, expectedCodes.length + 1);
+  assert.equal(starts[0], model.gregorianToRjd(...official.firstGregorian));
+  assert.equal(starts.at(-1), model.gregorianToRjd(...official.lastGregorian) + 1);
+  let expectedYearStart = starts[0];
   for (let yearIndex = 0; yearIndex < official.monthLengths.length; yearIndex++) {
     const monthIndex = yearIndex * 12;
     assert.equal(starts[monthIndex], expectedYearStart,
@@ -73,6 +84,132 @@ test("matches every month in the pinned KACST snapshot", () => {
     assert.equal(starts[index + 1] - starts[index],
       28 + Number(expectedCodes[index]),
       `month boundary ${index + 1} differs from the KACST snapshot`);
+});
+
+test("strictly validates the distributable KACST data pack", () => {
+  const result = model.validateCalendarData(official);
+  assert.equal(result.valid, true);
+  assert.equal(result.revision, official.revision);
+  assert.equal(result.codes, model.MONTH_LENGTH_CODES);
+
+  const invalidMonth = structuredClone(official);
+  invalidMonth.monthLengths[0].months[0] = 31;
+  assert.match(model.validateCalendarData(invalidMonth).error, /29 or 30/);
+
+  const wrongRange = structuredClone(official);
+  wrongRange.lastGregorian = [2077, 11, 15];
+  assert.match(model.validateCalendarData(wrongRange).error, /range does not match/);
+
+  const wrongSource = structuredClone(official);
+  wrongSource.source = "https://example.com/calendar.json";
+  assert.match(model.validateCalendarData(wrongSource).error, /expected KACST/);
+
+  const tooManyReferences = structuredClone(official);
+  while (tooManyReferences.references.length <= 32)
+    tooManyReferences.references.push(structuredClone(official.references[0]));
+  assert.match(model.validateCalendarData(tooManyReferences).error, /3 and 32/);
+
+  const duplicateReference = structuredClone(official);
+  duplicateReference.references[1] = structuredClone(duplicateReference.references[0]);
+  assert.match(model.validateCalendarData(duplicateReference).error, /distinct/);
+
+  const missingBoundary = structuredClone(official);
+  missingBoundary.references.splice(0, 1);
+  assert.match(model.validateCalendarData(missingBoundary).error, /both supported-range boundaries/);
+
+  const unsafeRevision = structuredClone(official);
+  unsafeRevision.revision = 2147483648;
+  assert.match(model.validateCalendarData(unsafeRevision).error, /32-bit/);
+});
+
+test("installs only newer valid revisions and can extend the offline range", () => {
+  const isolated = loadModel();
+  const sameRevisionChange = structuredClone(official);
+  sameRevisionChange.monthLengths.at(-1).months[0] = 30;
+  sameRevisionChange.monthLengths.at(-1).months[1] = 29;
+  assert.match(isolated.installCalendarData(sameRevisionChange).error, /newer revision/);
+
+  const extended = structuredClone(official);
+  extended.revision += 1;
+  extended.lastHijriYear += 1;
+  const addedMonths = [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29];
+  extended.monthLengths.push({ year: extended.lastHijriYear, months: addedMonths });
+  const oldLastRjd = isolated.gregorianToRjd(...official.lastGregorian);
+  const newLast = isolated.rjdToGregorian(
+    oldLastRjd + addedMonths.reduce((total, length) => total + length, 0)
+  );
+  extended.lastGregorian = [newLast.year, newLast.month, newLast.day];
+  extended.references.push({
+    hijri: [extended.lastHijriYear, 12, addedMonths[11]],
+    gregorian: extended.lastGregorian
+  });
+
+  const installed = isolated.installCalendarData(extended);
+  assert.deepEqual(plain(installed), {
+    valid: true, changed: true, revision: official.revision + 1
+  });
+  assert.equal(isolated.MAX_HIJRI_YEAR, extended.lastHijriYear);
+  assert.deepEqual(
+    gregorianYmd(isolated.hijriToGregorian(
+      extended.lastHijriYear, 12, addedMonths[11]
+    )),
+    extended.lastGregorian
+  );
+
+  const shrunk = structuredClone(official);
+  shrunk.revision = extended.revision + 1;
+  assert.match(isolated.installCalendarData(shrunk).error, /not shrink/);
+  assert.equal(isolated.installCalendarData(official).ignored, "older");
+});
+
+test("rejects newer packs that move the first supported boundary", () => {
+  const shiftedModel = loadModel();
+  const shifted = structuredClone(official);
+  shifted.revision += 1;
+  shifted.firstGregorian = shiftGregorian(shifted.firstGregorian, 1, shiftedModel);
+  shifted.lastGregorian = shiftGregorian(shifted.lastGregorian, 1, shiftedModel);
+  for (const reference of shifted.references)
+    reference.gregorian = shiftGregorian(reference.gregorian, 1, shiftedModel);
+  assert.equal(shiftedModel.validateCalendarData(shifted).valid, true);
+  assert.match(shiftedModel.installCalendarData(shifted).error, /preserve the first boundary/);
+
+  const rebasedModel = loadModel();
+  const rebased = structuredClone(official);
+  rebased.revision += 1;
+  rebased.firstHijriYear += 1;
+  rebased.monthLengths.shift();
+  rebased.firstGregorian = gregorianYmd(
+    rebasedModel.hijriToGregorian(rebased.firstHijriYear, 1, 1)
+  );
+  rebased.references = rebased.references.filter(
+    reference => reference.hijri[0] >= rebased.firstHijriYear
+  );
+  rebased.references.unshift({
+    hijri: [rebased.firstHijriYear, 1, 1],
+    gregorian: rebased.firstGregorian
+  });
+  assert.equal(rebasedModel.validateCalendarData(rebased).valid, true);
+  assert.match(rebasedModel.installCalendarData(rebased).error, /preserve the first boundary/);
+});
+
+test("coordinates one update request across multiple monitor bars", () => {
+  const isolated = loadModel();
+  const start = isolated.CALENDAR_CHECK_INTERVAL_MS + 10_000;
+  assert.equal(isolated.claimCalendarUpdate(start, false), true);
+  assert.equal(isolated.claimCalendarUpdate(start + 1, false), false);
+  isolated.finishCalendarUpdate();
+  assert.equal(
+    isolated.claimCalendarUpdate(start + isolated.CALENDAR_CHECK_INTERVAL_MS - 1, false),
+    false
+  );
+  assert.equal(isolated.claimCalendarUpdate(start + 1, true), true,
+    "a manual check should bypass freshness after the active request finishes");
+  isolated.finishCalendarUpdate();
+  assert.equal(
+    isolated.claimCalendarUpdate(start + 1 + isolated.CALENDAR_CHECK_INTERVAL_MS, false),
+    true
+  );
+  isolated.finishCalendarUpdate();
 });
 
 test("matches KACST anchor conversions in both directions", () => {
@@ -89,17 +226,26 @@ test("matches KACST anchor conversions in both directions", () => {
 });
 
 test("rejects dates outside the pinned range", () => {
-  assert.equal(model.gregorianToHijri(1900, 4, 29).valid, false);
-  assert.equal(model.gregorianToHijri(2077, 11, 17).valid, false);
-  assert.equal(model.hijriToGregorian(1317, 12, 29).valid, false);
-  assert.equal(model.hijriToGregorian(1501, 1, 1).valid, false);
-  assert.equal(model.hijriToGregorian(1448, 3, 30).valid, false);
+  const before = model.rjdToGregorian(model.gregorianToRjd(...official.firstGregorian) - 1);
+  const after = model.rjdToGregorian(model.gregorianToRjd(...official.lastGregorian) + 1);
+  assert.equal(model.gregorianToHijri(before.year, before.month, before.day).valid, false);
+  assert.equal(model.gregorianToHijri(after.year, after.month, after.day).valid, false);
+  assert.equal(model.hijriToGregorian(official.firstHijriYear - 1, 12, 29).valid, false);
+  assert.equal(model.hijriToGregorian(official.lastHijriYear + 1, 1, 1).valid, false);
+
+  const shortMonth = official.monthLengths.flatMap(entry =>
+    entry.months.map((length, index) => ({ year: entry.year, month: index + 1, length }))
+  ).find(entry => entry.length === 29);
+  assert.equal(model.hijriToGregorian(shortMonth.year, shortMonth.month, 30).valid, false);
 });
 
-test("round-trips all 64,850 supported calendar days", () => {
-  const first = model.gregorianToRjd(1900, 4, 30);
-  const last = model.gregorianToRjd(2077, 11, 16);
-  assert.equal(last - first + 1, 64850);
+test("round-trips every supported calendar day", () => {
+  const first = model.gregorianToRjd(...official.firstGregorian);
+  const last = model.gregorianToRjd(...official.lastGregorian);
+  const declaredDays = official.monthLengths.reduce((yearTotal, entry) =>
+    yearTotal + entry.months.reduce((total, length) => total + length, 0), 0
+  );
+  assert.equal(last - first + 1, declaredDays);
 
   for (let rjd = first; rjd <= last; rjd++) {
     const gregorian = model.rjdToGregorian(rjd);

@@ -10,6 +10,7 @@ BarWidget {
   moduleName: "io.github.randazraik.hijri-date"
 
   property date displayDate: clock.date
+  readonly property int calendarRevision: calendarUpdater.activeRevision
 
   readonly property string language: Model.normalizeLanguage(setting("language", "Auto"), Qt.locale().name)
   readonly property string numerals: Model.normalizeNumerals(setting("numerals", "Native"))
@@ -19,7 +20,11 @@ BarWidget {
   readonly property string configuredFont: String(setting("fontFamily", ""))
   readonly property string markerMode: Model.normalizeMarkerMode(setting("markers", "Major dates"))
   readonly property string barMarkerMode: Model.normalizeBarMarker(setting("barMarker", "Off"))
-  readonly property var todayHijri: Model.hijriForDate(displayDate, dayOffset)
+  readonly property bool automaticUpdates: setting("autoUpdate", true) === true
+  readonly property var todayHijri: {
+    root.calendarRevision
+    return Model.hijriForDate(displayDate, dayOffset)
+  }
   readonly property var todayObservances: Model.observancesFor(
     todayHijri.year, todayHijri.month, todayHijri.day, markerMode, language)
   readonly property string dateText: Model.formatHijri(todayHijri, {
@@ -103,6 +108,11 @@ BarWidget {
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
 
+  CalendarUpdater {
+    id: calendarUpdater
+    automaticUpdates: root.automaticUpdates
+  }
+
   SystemClock {
     id: clock
     precision: SystemClock.Minutes
@@ -135,6 +145,7 @@ BarWidget {
     function hide(): void { root.close() }
     function toggle(): void { root.togglePanel() }
     function cycleFormat(): void { root.cycleFormat() }
+    function checkUpdates(): void { calendarUpdater.checkNow(true) }
   }
 
   WidgetButton {

@@ -14,6 +14,16 @@ Panel {
   property var hostWidget: null
   property date today: new Date()
   readonly property var barIdentity: hostWidget || root
+  readonly property int calendarRevision: hostWidget && "calendarRevision" in hostWidget
+    ? hostWidget.calendarRevision : Model.CALENDAR_REVISION
+  readonly property int minHijriYear: {
+    root.calendarRevision
+    return Model.MIN_HIJRI_YEAR
+  }
+  readonly property int maxHijriYear: {
+    root.calendarRevision
+    return Model.MAX_HIJRI_YEAR
+  }
 
   readonly property string language: Model.normalizeLanguage(setting("language", "Auto"), Qt.locale().name)
   readonly property string numerals: Model.normalizeNumerals(setting("numerals", "Native"))
@@ -23,10 +33,16 @@ Panel {
   readonly property string markerMode: Model.normalizeMarkerMode(setting("markers", "Major dates"))
   readonly property bool centerPanel: Model.normalizePanelPosition(
     setting("panelPosition", "Anchored")) === "Centered"
-  readonly property var todayHijri: Model.hijriForDate(today, dayOffset)
+  readonly property var todayHijri: {
+    root.calendarRevision
+    return Model.hijriForDate(today, dayOffset)
+  }
   readonly property var todayGregorian: Model.gregorianForDate(today)
   readonly property var weekdays: Model.weekdayOrder(firstDay)
-  readonly property var cells: Model.monthGrid(viewYear, viewMonth, firstDay, dayOffset, todayHijri)
+  readonly property var cells: {
+    root.calendarRevision
+    return Model.monthGrid(viewYear, viewMonth, firstDay, dayOffset, todayHijri)
+  }
   readonly property real yearDone: Model.hijriYearProgress(todayHijri)
   readonly property int yearDonePercent: Math.round(yearDone * 100)
 
@@ -35,9 +51,14 @@ Panel {
   property int selectedYear: todayHijri.valid ? todayHijri.year : 1448
   property int selectedMonth: todayHijri.valid ? todayHijri.month : 1
   property int selectedDay: todayHijri.valid ? todayHijri.day : 1
+  property int selectedRjd: todayGregorian.valid
+    ? Model.gregorianToRjd(todayGregorian.year, todayGregorian.month, todayGregorian.day) : 0
 
-  readonly property var selectedGregorian: Model.gregorianForAdjustedHijri(
-    selectedYear, selectedMonth, selectedDay, dayOffset)
+  readonly property var selectedGregorian: {
+    root.calendarRevision
+    return Model.gregorianForAdjustedHijri(
+      selectedYear, selectedMonth, selectedDay, dayOffset)
+  }
   readonly property var selectedHijri: ({
     valid: selectedGregorian.valid === true,
     year: selectedYear,
@@ -55,8 +76,8 @@ Panel {
   })
   readonly property bool viewingToday: todayHijri.valid
     && viewYear === todayHijri.year && viewMonth === todayHijri.month
-  readonly property bool canGoBack: viewYear > Model.MIN_HIJRI_YEAR || viewMonth > 1
-  readonly property bool canGoForward: viewYear < Model.MAX_HIJRI_YEAR || viewMonth < 12
+  readonly property bool canGoBack: viewYear > minHijriYear || viewMonth > 1
+  readonly property bool canGoForward: viewYear < maxHijriYear || viewMonth < 12
   readonly property color contentForeground: bar ? bar.foreground : Color.foreground
   readonly property color accentColor: Color.accent
   readonly property color mutedForeground: Util.alpha(contentForeground, 0.72)
@@ -86,11 +107,30 @@ Panel {
     selectedYear = viewYear
     selectedMonth = viewMonth
     selectedDay = day
+    var gregorian = Model.gregorianForAdjustedHijri(
+      selectedYear, selectedMonth, selectedDay, dayOffset)
+    selectedRjd = gregorian.valid
+      ? Model.gregorianToRjd(gregorian.year, gregorian.month, gregorian.day) : 0
+  }
+
+  function selectCivilDay(rjd) {
+    var adjusted = Model.rjdToGregorian(rjd + dayOffset)
+    var hijri = Model.gregorianToHijri(adjusted.year, adjusted.month, adjusted.day)
+    if (!hijri.valid) {
+      goToToday()
+      return
+    }
+    viewYear = hijri.year
+    viewMonth = hijri.month
+    selectedYear = hijri.year
+    selectedMonth = hijri.month
+    selectedDay = hijri.day
+    selectedRjd = rjd
   }
 
   function moveMonth(delta) {
     var next = Model.stepHijriMonth(viewYear, viewMonth, delta)
-    if (next.year < Model.MIN_HIJRI_YEAR || next.year > Model.MAX_HIJRI_YEAR) return
+    if (next.year < minHijriYear || next.year > maxHijriYear) return
     viewYear = next.year
     viewMonth = next.month
     selectDay(1)
@@ -125,6 +165,12 @@ Panel {
       return root.bar.switchPanelFrom(root.barIdentity, direction)
     return false
   }
+
+  onCalendarRevisionChanged: Qt.callLater(function() {
+    if (!root.opened) root.goToToday()
+    else if (root.selectedRjd > 0) root.selectCivilDay(root.selectedRjd)
+    else root.goToToday()
+  })
 
   SystemClock {
     id: clock

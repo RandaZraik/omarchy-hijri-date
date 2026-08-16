@@ -1,7 +1,8 @@
 # Hijri Date for Omarchy
 
-A native Omarchy Quattro bar widget with an offline Umm al-Qura Hijri calendar.
-No network service, subprocess, package, or runtime dependency is required.
+A native, offline-first Omarchy Quattro bar widget for the official KACST
+Umm al-Qura calendar. It can update its calendar data without downloading or
+executing plugin code.
 
 <p align="center">
   <img src="preview.png" width="681" alt="Hijri date in the Omarchy bar with its anchored Arabic calendar, Gregorian dates, and Islamic occasion markers">
@@ -37,18 +38,19 @@ Replace `omarchy.clock` if you use a custom clock ID.
 
 ## Options
 
-| Setting | Choices |
-| --- | --- |
-| Language | Auto, English, العربية, Türkçe, বাংলা |
-| Numerals | Native, Latin |
-| Bar format | Full, Compact, Numeric, Month and day |
-| Show weekday | On, Off |
-| Local adjustment | `−2` through `+2` days |
-| Week starts on | Auto, Saturday, Sunday, Monday |
-| Calendar markers | Major dates, Major + traditional, Off |
-| Today's marker in bar | Off, Dot, localized Name |
-| Panel position | Anchored, Centered |
-| Font family | Empty to inherit Omarchy, or any installed font |
+| Setting | Key | Choices |
+| --- | --- | --- |
+| Language | `language` | Auto, English, العربية, Türkçe, বাংলা |
+| Numerals | `numerals` | Native, Latin |
+| Bar format | `format` | Full, Compact, Numeric, Month and day |
+| Show weekday | `showWeekday` | On, Off |
+| Automatic calendar updates | `autoUpdate` | On, Off |
+| Local adjustment | `dayOffset` | `−2` through `+2` days |
+| Week starts on | `weekStart` | Auto, Saturday, Sunday, Monday |
+| Calendar markers | `markers` | Major dates, Major + traditional, Off |
+| Today's marker in bar | `barMarker` | Off, Dot, localized Name |
+| Panel position | `panelPosition` | Anchored, Centered |
+| Font family | `fontFamily` | Empty to inherit Omarchy, or any installed font |
 
 Configure through the bar editor or CLI:
 
@@ -99,56 +101,35 @@ The optional traditional tier uses a muted dot and also includes:
 - Traditional dates vary between communities; markers are reminders, not rulings.
 - The local day adjustment moves the date, calendar, and markers together.
 
-## Accuracy and maintenance
+## Accuracy
 
-- Calendar: table-backed Umm al-Qura, not an approximate arithmetic formula.
-- Source: KACST's official [Umm al-Qura Calendar](https://www.ummulqura.org.sa/en/annual-reference) and [date-conversion API](https://umqserv.kacst.gov.sa/api/v1/DateConversion/GetHijriMonthLengths), pinned on 16 August 2026.
-- Range: 1 Muharram 1318–30 Dhu al-Hijjah 1500 AH, or 30 April 1900–16 November 2077 CE.
-- Verification: CI checks all 183 year starts, 2,196 month lengths, official conversion anchors, and every one of the 64,850 supported days in both directions.
-- Daily behavior: the displayed date advances automatically; no internet is needed.
+- Calendar: exact month tables, not an approximate arithmetic formula.
+- Authority: KACST's official [Umm al-Qura Calendar](https://www.ummulqura.org.sa/en/annual-reference) and [date-conversion API](https://umqserv.kacst.gov.sa/api/v1/DateConversion/GetHijriMonthLengths).
+<!-- BEGIN GENERATED CALENDAR RANGE -->
+- Current bundled data: revision 1; Hijri 1318-01-01–1500-12-30 AH; Gregorian 1900-04-30–2077-11-16.
+<!-- END GENERATED CALENDAR RANGE -->
+- Verification: CI derives and checks every declared year start and month boundary, the official conversion anchors, and every supported day in both directions.
+- Offline behavior: the bundled KACST table works immediately with no internet.
 - Marker behavior: fixed Hijri occasions recur automatically and follow the selected calendar date and local adjustment; they do not need annual edits.
-- Source watch: monthly CI compares every bundled month length with KACST and checks boundary plus present-day conversion anchors.
-- Future dates: KACST can revise a predicted boundary. CI will flag it, then the maintainer reviews the exact changes and publishes a release—there is no routine yearly table update.
 - Local sightings: if an authority announces a different religious month start, the user changes `dayOffset`; the plugin author does not patch that year's calendar.
 - Religious decisions: the Saudi Supreme Court, for example, [requests sighting reports before announcing Ramadan](https://www.spa.gov.sa/en/N2512732).
-- Corrections or a post-2077 extension are versioned, tested, and reviewed—never silently downloaded at runtime.
 
 ## Updates
 
-- A push makes new code available; it does not change installed copies.
-- Omarchy does not currently announce individual plugin updates.
-- To be notified, use GitHub **Watch → Custom → Releases** for this repository.
-- Existing users update when they choose:
+- Calendar data updates automatically when online and continues working from bundled or last-known-good data when offline.
+- Code and UI updates remain user-controlled:
 
 ```bash
 omarchy plugin update io.github.randazraik.hijri-date
 ```
 
-- Omarchy shows the diff, asks for confirmation, then fast-forwards.
-- Dates and yearly markers continue working offline without routine updates.
-- For a KACST correction, the maintainer updates the pinned snapshot and bundled table, lists every changed boundary, runs the full suite, bumps `manifest.json`, and publishes a GitHub Release.
-
 ## Privacy
 
-- No network requests, analytics, files, shell commands, or elevated privileges
+- Network access is limited to calendar data from `raw.githubusercontent.com`
+- The only stored data is the validated calendar cache in Quickshell's state directory
+- No analytics, subprocesses, shell commands, downloaded code, or elevated privileges
 - Clipboard access only after `C` or Enter
 - Community plugins run unsandboxed inside `omarchy-shell`; review before enabling
-
-## Development and CI
-
-```bash
-node --test tests/*.test.js
-omarchy plugin validate .
-/usr/lib/qt6/bin/qmllint -I /usr/share/omarchy/shell BarWidget.qml
-/usr/lib/qt6/bin/qmllint -I /usr/share/omarchy/shell Panel.qml
-```
-
-- Every push and pull request runs the complete Node suite.
-- Merging to `master` is another push, so CI runs again.
-- Monthly CI compares all 2,196 month lengths and three conversion anchors directly with KACST; the regular suite derives and verifies all 183 year starts.
-- The source check also has a manual **Run workflow** button.
-- GitHub may pause schedules after 60 inactive days in a public repository; that pauses only the extra alert, not the plugin.
-- Node and network access are CI-only; the installed plugin uses neither.
 
 ## Remove
 

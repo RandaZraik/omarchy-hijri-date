@@ -1,20 +1,29 @@
-// Offline Umm al-Qura calendar conversion and presentation helpers.
-//
-// Month lengths are pinned from KACST's official Umm al-Qura API, retrieved
-// 2026-08-16. See README.md and tests/official-references.json for provenance.
+.pragma library
 
+// Umm al-Qura calendar conversion and presentation helpers.
+//
+// The generated block is a complete offline fallback pinned from KACST's
+// official API. A strictly validated, newer data pack may replace it at runtime.
+
+var CALENDAR_SCHEMA_VERSION = 1
+var CALENDAR_AUTHORITY = "KACST Umm al-Qura"
+var CALENDAR_SOURCE = "https://umqserv.kacst.gov.sa/api/v1/DateConversion/GetHijriMonthLengths"
+var CALENDAR_CONVERSION_SOURCE = "https://umqserv.kacst.gov.sa/api/v1/DateConversion"
+var CALENDAR_ANNUAL_REFERENCE = "https://www.ummulqura.org.sa/en/annual-reference"
+var UNIX_EPOCH_RJD = 40588
+var DAY_MS = 86400000
+
+// BEGIN GENERATED CALENDAR DATA
+var CALENDAR_REVISION = 1
 var MIN_GREGORIAN = { year: 1900, month: 4, day: 30 }
 var MAX_GREGORIAN = { year: 2077, month: 11, day: 16 }
 var MIN_HIJRI_YEAR = 1318
 var MAX_HIJRI_YEAR = 1500
 var HIJRI_OFFSET = 1317 * 12
 var FIRST_MONTH_RJD = 15140
-var UNIX_EPOCH_RJD = 40588
-var DAY_MS = 86400000
 
 // Each character is the exact length of one Hijri month minus 28 (1 = 29
-// days, 2 = 30 days). Keeping lengths instead of 2,197 full month-start
-// values is compact without approximating any boundary.
+// days, 2 = 30 days). This is the bundled, generated offline fallback.
 var MONTH_LENGTH_CODES =
   "2122122121211212212122121211212122212121121122221212111212221221211121221221212112122121221212121121" +
   "2212122121121212212212112112221221211211221222121121122122122112121212122121221121122122122111212122" +
@@ -38,6 +47,7 @@ var MONTH_LENGTH_CODES =
   "2221212112112222121211212122122121121212122121212121212121221212121121222212112112122212211211212221" +
   "2121211212212212121121212212212121121212212212112121212221211212121221221121211221221212121122121221" +
   "212121121222121212111222122121121122122212112112212212121212121212212121212112212122121211212122"
+// END GENERATED CALENDAR DATA
 
 var MONTHS = {
   en: ["Muharram", "Safar", "Rabi' al-Awwal", "Rabi' al-Thani", "Jumada al-Ula", "Jumada al-Akhirah", "Rajab", "Sha'ban", "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah"],
@@ -138,6 +148,185 @@ var FIXED_OBSERVANCES = [
 ]
 
 var _monthStarts = null
+var _calendarCheckInFlight = false
+var _lastCalendarCheckMs = 0
+var CALENDAR_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+
+// Omarchy creates one bar per monitor. Coordinate those instances so they make
+// one update request, while FileView propagates an accepted cache to every bar.
+function claimCalendarUpdate(nowMs, force) {
+  var now = Number(nowMs)
+  if (_calendarCheckInFlight) return false
+  if (force !== true && now - _lastCalendarCheckMs < CALENDAR_CHECK_INTERVAL_MS) return false
+  _calendarCheckInFlight = true
+  _lastCalendarCheckMs = now
+  return true
+}
+
+function finishCalendarUpdate() {
+  _calendarCheckInFlight = false
+}
+
+function validGregorianParts(value) {
+  if (!Array.isArray(value) || value.length !== 3) return false
+  if (!Number.isInteger(value[0]) || !Number.isInteger(value[1]) || !Number.isInteger(value[2]))
+    return false
+  if (value[0] < 1 || value[1] < 1 || value[1] > 12 || value[2] < 1 || value[2] > 31)
+    return false
+  var normalized = rjdToGregorian(gregorianToRjd(value[0], value[1], value[2]))
+  return normalized.year === value[0] && normalized.month === value[1] && normalized.day === value[2]
+}
+
+function sameParts(value, parts) {
+  return value[0] === parts.year && value[1] === parts.month && value[2] === parts.day
+}
+
+function hijriToGregorianFromTable(year, month, day, firstYear, lastYear, starts) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)
+      || year < firstYear || year > lastYear
+      || month < 1 || month > 12) return null
+  var index = (year - firstYear) * 12 + month - 1
+  var length = starts[index + 1] - starts[index]
+  if (day < 1 || day > length) return null
+  return rjdToGregorian(starts[index] + day - 1)
+}
+
+function invalidCalendarData(message) {
+  return { valid: false, changed: false, error: message }
+}
+
+// Validate every field needed by conversion before any live state is changed.
+function validateCalendarData(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data))
+    return invalidCalendarData("Calendar data must be an object")
+  if (data.schemaVersion !== CALENDAR_SCHEMA_VERSION)
+    return invalidCalendarData("Unsupported calendar data schema")
+  if (!Number.isInteger(data.revision) || data.revision < 1 || data.revision > 2147483647)
+    return invalidCalendarData("Calendar revision must be a positive 32-bit integer")
+  if (data.authority !== CALENDAR_AUTHORITY || data.source !== CALENDAR_SOURCE
+      || data.conversionSource !== CALENDAR_CONVERSION_SOURCE
+      || data.annualReference !== CALENDAR_ANNUAL_REFERENCE)
+    return invalidCalendarData("Calendar source metadata does not match the expected KACST service")
+  if (!Number.isInteger(data.firstHijriYear) || !Number.isInteger(data.lastHijriYear)
+      || data.firstHijriYear < 1 || data.lastHijriYear < data.firstHijriYear
+      || data.lastHijriYear > 2000)
+    return invalidCalendarData("Invalid supported Hijri year range")
+  if (!validGregorianParts(data.firstGregorian) || !validGregorianParts(data.lastGregorian))
+    return invalidCalendarData("Invalid supported Gregorian date range")
+
+  var years = data.monthLengths
+  var expectedYears = data.lastHijriYear - data.firstHijriYear + 1
+  if (!Array.isArray(years) || years.length !== expectedYears)
+    return invalidCalendarData("Calendar years do not match the declared range")
+
+  var firstRjd = gregorianToRjd(
+    data.firstGregorian[0], data.firstGregorian[1], data.firstGregorian[2])
+  var starts = [firstRjd]
+  var codes = ""
+  var totalDays = 0
+  for (var yearIndex = 0; yearIndex < years.length; yearIndex++) {
+    var entry = years[yearIndex]
+    var expectedYear = data.firstHijriYear + yearIndex
+    if (!entry || entry.year !== expectedYear || !Array.isArray(entry.months)
+        || entry.months.length !== 12)
+      return invalidCalendarData("Calendar years must be consecutive with twelve months")
+    for (var monthIndex = 0; monthIndex < 12; monthIndex++) {
+      var length = entry.months[monthIndex]
+      if (length !== 29 && length !== 30)
+        return invalidCalendarData("Every Hijri month must contain 29 or 30 days")
+      codes += String(length - 28)
+      totalDays += length
+      starts.push(firstRjd + totalDays)
+    }
+  }
+
+  var lastParts = rjdToGregorian(starts[starts.length - 1] - 1)
+  if (!sameParts(data.lastGregorian, lastParts))
+    return invalidCalendarData("Gregorian range does not match the month table")
+
+  var candidate = {
+    valid: true,
+    changed: false,
+    revision: data.revision,
+    firstHijriYear: data.firstHijriYear,
+    lastHijriYear: data.lastHijriYear,
+    firstGregorian: {
+      year: data.firstGregorian[0], month: data.firstGregorian[1], day: data.firstGregorian[2]
+    },
+    lastGregorian: lastParts,
+    firstRjd: firstRjd,
+    codes: codes,
+    starts: starts
+  }
+
+  if (!Array.isArray(data.references) || data.references.length < 3
+      || data.references.length > 32)
+    return invalidCalendarData("Calendar data needs between 3 and 32 conversion references")
+  var seenReferences = {}
+  var hasFirstReference = false
+  var hasLastReference = false
+  for (var referenceIndex = 0; referenceIndex < data.references.length; referenceIndex++) {
+    var reference = data.references[referenceIndex]
+    if (!reference || !Array.isArray(reference.hijri) || reference.hijri.length !== 3
+        || !validGregorianParts(reference.gregorian))
+      return invalidCalendarData("Invalid conversion reference")
+    for (var hijriPart = 0; hijriPart < 3; hijriPart++)
+      if (!Number.isInteger(reference.hijri[hijriPart]))
+        return invalidCalendarData("Invalid Hijri conversion reference")
+    var referenceKey = reference.hijri.join("-")
+    if (seenReferences[referenceKey] === true)
+      return invalidCalendarData("Conversion references must use distinct Hijri dates")
+    seenReferences[referenceKey] = true
+    if (reference.hijri[0] === candidate.firstHijriYear
+        && reference.hijri[1] === 1 && reference.hijri[2] === 1)
+      hasFirstReference = true
+    if (reference.hijri[0] === candidate.lastHijriYear
+        && reference.hijri[1] === 12
+        && reference.hijri[2] === starts[starts.length - 1] - starts[starts.length - 2])
+      hasLastReference = true
+    var converted = hijriToGregorianFromTable(
+      reference.hijri[0], reference.hijri[1], reference.hijri[2],
+      candidate.firstHijriYear, candidate.lastHijriYear, candidate.starts)
+    if (!converted || !sameParts(reference.gregorian, converted))
+      return invalidCalendarData("Conversion reference does not match the month table")
+  }
+  if (!hasFirstReference || !hasLastReference)
+    return invalidCalendarData("Conversion references must include both supported-range boundaries")
+
+  return candidate
+}
+
+function installCalendarData(data) {
+  var candidate = validateCalendarData(data)
+  if (!candidate.valid) return candidate
+
+  var identical = candidate.firstHijriYear === MIN_HIJRI_YEAR
+    && candidate.lastHijriYear === MAX_HIJRI_YEAR
+    && candidate.firstRjd === FIRST_MONTH_RJD
+    && candidate.codes === MONTH_LENGTH_CODES
+  if (candidate.revision < CALENDAR_REVISION)
+    return { valid: true, changed: false, revision: CALENDAR_REVISION, ignored: "older" }
+  if (candidate.revision === CALENDAR_REVISION) {
+    if (!identical)
+      return invalidCalendarData("Changed calendar data must have a newer revision")
+    return { valid: true, changed: false, revision: CALENDAR_REVISION }
+  }
+  if (candidate.firstHijriYear !== MIN_HIJRI_YEAR
+      || candidate.firstRjd !== FIRST_MONTH_RJD
+      || candidate.lastHijriYear < MAX_HIJRI_YEAR)
+    return invalidCalendarData("Newer calendar data must preserve the first boundary and not shrink the range")
+
+  CALENDAR_REVISION = candidate.revision
+  MIN_GREGORIAN = candidate.firstGregorian
+  MAX_GREGORIAN = candidate.lastGregorian
+  MIN_HIJRI_YEAR = candidate.firstHijriYear
+  MAX_HIJRI_YEAR = candidate.lastHijriYear
+  HIJRI_OFFSET = (MIN_HIJRI_YEAR - 1) * 12
+  FIRST_MONTH_RJD = candidate.firstRjd
+  MONTH_LENGTH_CODES = candidate.codes
+  _monthStarts = candidate.starts
+  return { valid: true, changed: true, revision: CALENDAR_REVISION }
+}
 
 function monthStarts() {
   if (_monthStarts !== null) return _monthStarts
@@ -233,13 +422,13 @@ function hijriYearProgress(parts) {
 }
 
 function hijriToGregorian(year, month, day) {
-  if (year < MIN_HIJRI_YEAR || year > MAX_HIJRI_YEAR || month < 1 || month > 12)
-    return { valid: false, error: "Hijri date is outside the supported range" }
-  var index = hijriMonthIndex(year, month)
-  var length = hijriMonthLength(year, month)
-  if (length === 0 || day < 1 || day > length)
+  var result = hijriToGregorianFromTable(
+    year, month, day, MIN_HIJRI_YEAR, MAX_HIJRI_YEAR, monthStarts())
+  if (!result) {
+    if (year < MIN_HIJRI_YEAR || year > MAX_HIJRI_YEAR || month < 1 || month > 12)
+      return { valid: false, error: "Hijri date is outside the supported range" }
     return { valid: false, error: "Invalid Hijri day" }
-  var result = rjdToGregorian(monthStarts()[index] + day - 1)
+  }
   result.valid = true
   return result
 }

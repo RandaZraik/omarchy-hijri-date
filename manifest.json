@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.randazraik.hijri-date",
   "name": "Hijri Date",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "author": "Randa Zraik",
   "license": "MIT",
   "description": "A multilingual Umm al-Qura Hijri date and calendar for the Omarchy bar.",
@@ -23,6 +23,7 @@
       "numerals": "Native",
       "format": "Full",
       "showWeekday": false,
+      "autoUpdate": true,
       "dayOffset": 0,
       "weekStart": "Auto",
       "markers": "Major dates",
@@ -57,6 +58,13 @@
         "type": "boolean",
         "label": "Show weekday",
         "defaultValue": false
+      },
+      {
+        "key": "autoUpdate",
+        "type": "boolean",
+        "label": "Automatic calendar updates",
+        "description": "Check this repository for newer maintainer-approved KACST calendar data while keeping the bundled offline table as fallback.",
+        "defaultValue": true
       },
       {
         "key": "dayOffset",

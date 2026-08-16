@@ -7,6 +7,10 @@ const test = require("node:test");
 
 const root = path.join(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+const calendarData = JSON.parse(
+  fs.readFileSync(path.join(root, "calendar-data.json"), "utf8")
+);
+const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
 
 function schemaEntry(key) {
   return manifest.barWidget.schema.find(entry => entry.key === key);
@@ -27,8 +31,10 @@ test("includes the runtime, marketplace, and legal assets", () => {
   const requiredAssets = [
     "manifest.json",
     manifest.entryPoints.barWidget,
+    "CalendarUpdater.qml",
     "Panel.qml",
     "Model.js",
+    "calendar-data.json",
     "preview.png",
     "README.md",
     "LICENSE"
@@ -80,9 +86,23 @@ test("exposes the documented formatting and calendar choices", () => {
     ["Major dates", "Major + traditional", "Off"]);
   assert.deepEqual(schemaEntry("barMarker").options, ["Off", "Dot", "Name"]);
   assert.deepEqual(schemaEntry("panelPosition").options, ["Anchored", "Centered"]);
+  assert.equal(schemaEntry("autoUpdate").defaultValue, true);
 
   const dayOffset = schemaEntry("dayOffset");
   assert.equal(dayOffset.min, -2);
   assert.equal(dayOffset.max, 2);
   assert.equal(dayOffset.step, 1);
+});
+
+test("documents the exact generated calendar revision and range", () => {
+  const lastDay = calendarData.monthLengths.at(-1).months[11];
+  const isoDate = parts => parts
+    .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, "0"))
+    .join("-");
+  const expected = `- Current bundled data: revision ${calendarData.revision}; ` +
+    `Hijri ${calendarData.firstHijriYear}-01-01–` +
+    `${calendarData.lastHijriYear}-12-${lastDay} AH; ` +
+    `Gregorian ${isoDate(calendarData.firstGregorian)}–` +
+    `${isoDate(calendarData.lastGregorian)}.`;
+  assert.ok(readme.includes(expected));
 });

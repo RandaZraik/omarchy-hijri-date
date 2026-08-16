@@ -1,4 +1,7 @@
 {
+  "schemaVersion": 1,
+  "revision": 1,
+  "authority": "KACST Umm al-Qura",
   "description": "KACST Umm al-Qura month-length snapshot for the plugin's supported range",
   "source": "https://umqserv.kacst.gov.sa/api/v1/DateConversion/GetHijriMonthLengths",
   "conversionSource": "https://umqserv.kacst.gov.sa/api/v1/DateConversion",

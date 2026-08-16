@@ -6,16 +6,64 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: calendar-source-check
+  cancel-in-progress: false
 
 jobs:
   compare:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Compare with KACST's official calendar data
-        run: node tests/check-upstream.js
+
+      - name: Generate a candidate from KACST
+        id: candidate
+        run: |
+          node tests/check-upstream.js --write --report "$RUNNER_TEMP/calendar-update.md"
+          cat "$RUNNER_TEMP/calendar-update.md" >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- calendar-data.json Model.js README.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test the complete candidate
+        if: steps.candidate.outputs.changed == 'true'
+        run: node --test tests/*.test.js
+
+      - name: Open or update the review pull request
+        if: steps.candidate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_BRANCH: automation/kacst-calendar-data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin \
+            "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH" || true
+          git switch -C "$UPDATE_BRANCH"
+          git add calendar-data.json Model.js README.md
+          git commit -m "chore: update KACST calendar data"
+          git push --force-with-lease="refs/heads/$UPDATE_BRANCH" \
+            origin "HEAD:refs/heads/$UPDATE_BRANCH"
+
+          if gh pr view "$UPDATE_BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$UPDATE_BRANCH" \
+              --title "chore: update KACST calendar data" \
+              --body-file "$RUNNER_TEMP/calendar-update.md"
+          else
+            gh pr create \
+              --base master \
+              --head "$UPDATE_BRANCH" \
+              --title "chore: update KACST calendar data" \
+              --body-file "$RUNNER_TEMP/calendar-update.md"
+          fi
