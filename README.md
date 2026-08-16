@@ -141,3 +141,5 @@ omarchy plugin remove io.github.randazraik.hijri-date
 
 MIT licensed. Calendar data is attributed above to KACST's official Umm
 al-Qura Calendar service.
+
+<!-- temporary calendar automation PR test; do not merge -->
