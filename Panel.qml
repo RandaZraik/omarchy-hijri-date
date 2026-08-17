@@ -13,7 +13,9 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
   property date today: new Date()
+  property string mode: "calendar"
   readonly property var barIdentity: hostWidget || root
+  readonly property var settingDefaults: hostWidget ? hostWidget.settingDefaults : Model.settingsDefaults()
   readonly property int calendarRevision: hostWidget && "calendarRevision" in hostWidget
     ? hostWidget.calendarRevision : Model.CALENDAR_REVISION
   readonly property int minHijriYear: {
@@ -25,14 +27,20 @@ Panel {
     return Model.MAX_HIJRI_YEAR
   }
 
-  readonly property string language: Model.normalizeLanguage(setting("language", "Auto"), Qt.locale().name)
-  readonly property string numerals: Model.normalizeNumerals(setting("numerals", "Native"))
-  readonly property int dayOffset: Model.clampOffset(setting("dayOffset", 0))
-  readonly property string configuredFont: String(setting("fontFamily", ""))
-  readonly property int firstDay: Model.normalizeWeekStart(setting("weekStart", "Auto"), Qt.locale().firstDayOfWeek)
-  readonly property string markerMode: Model.normalizeMarkerMode(setting("markers", "Major dates"))
+  readonly property string language: hostWidget ? hostWidget.language
+    : Model.normalizeLanguage(setting("language", settingDefaults.language), Qt.locale().name)
+  readonly property string numerals: hostWidget ? hostWidget.numerals
+    : Model.normalizeNumerals(setting("numerals", settingDefaults.numerals))
+  readonly property int dayOffset: hostWidget ? hostWidget.dayOffset
+    : Model.clampOffset(setting("dayOffset", settingDefaults.dayOffset))
+  readonly property string configuredFont: hostWidget ? hostWidget.configuredFont
+    : String(setting("fontFamily", settingDefaults.fontFamily))
+  readonly property int firstDay: Model.normalizeWeekStart(
+    setting("weekStart", settingDefaults.weekStart), Qt.locale().firstDayOfWeek)
+  readonly property string markerMode: hostWidget ? hostWidget.markerMode
+    : Model.normalizeMarkerMode(setting("markers", settingDefaults.markers))
   readonly property bool centerPanel: Model.normalizePanelPosition(
-    setting("panelPosition", "Anchored")) === "Centered"
+    setting("panelPosition", settingDefaults.panelPosition)) === "Centered"
   readonly property var todayHijri: {
     root.calendarRevision
     return Model.hijriForDate(today, dayOffset)
@@ -147,8 +155,20 @@ Panel {
   }
 
   function open() {
+    mode = "calendar"
     refresh()
     root.controller.show()
+  }
+
+  function openCalendar() {
+    mode = "calendar"
+    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+  }
+
+  function openSettings() {
+    if (mode === "settings") return
+    mode = "settings"
+    Qt.callLater(function() { settingsPane.focusFirst() })
   }
 
   function close() {
@@ -170,6 +190,9 @@ Panel {
     if (!root.opened) root.goToToday()
     else if (root.selectedRjd > 0) root.selectCivilDay(root.selectedRjd)
     else root.goToToday()
+  })
+  onDayOffsetChanged: Qt.callLater(function() {
+    if (root.selectedRjd > 0) root.selectCivilDay(root.selectedRjd)
   })
 
   SystemClock {
@@ -194,11 +217,14 @@ Panel {
     centerOnBar: root.centerPanel
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(root.gridWidth + panel.padding * 2 + Style.space(18))
-    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight)
+    contentHeight: root.mode === "calendar"
+      ? panel.fittedContentHeight(contentColumn.implicitHeight)
+      : panel.cappedContentHeight(Style.space(680))
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: root.mode === "settings"
       onMoveRequested: function(dx, dy) {
         if (dx !== 0) root.moveMonth(dx)
         if (dy !== 0) root.moveYear(dy)
@@ -207,7 +233,8 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(text) {
-        if (text === "[" || text === "h") root.moveMonth(-1)
+        if (text === "s" || text === "S") root.openSettings()
+        else if (text === "[" || text === "h") root.moveMonth(-1)
         else if (text === "]" || text === "l") root.moveMonth(1)
         else if (text === "{" || text === "k") root.moveYear(-1)
         else if (text === "}" || text === "j") root.moveYear(1)
@@ -216,6 +243,7 @@ Panel {
       }
 
       Flickable {
+        visible: root.mode === "calendar"
         anchors.fill: parent
         contentWidth: contentColumn.width
         contentHeight: contentColumn.implicitHeight
@@ -228,43 +256,61 @@ Panel {
           width: Math.max(keyCatcher.width, root.gridWidth)
           spacing: Style.space(12)
 
-          Column {
+          Item {
             width: parent.width
-            spacing: Style.space(4)
+            height: heroContent.implicitHeight
 
-            Row {
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: Style.space(12)
+            Column {
+              id: heroContent
+              width: parent.width
+              spacing: Style.space(4)
 
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "󰃭"
-                color: root.contentForeground
-                font.family: Style.font.family
-                font.pixelSize: Math.round(Style.font.displayLarge * 1.45)
+              Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Style.space(10)
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰃭"
+                  color: root.contentForeground
+                  font.family: Style.font.family
+                  font.pixelSize: Math.round(Style.font.displayLarge * 1.45)
+                }
+
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: Model.formatHijri(root.todayHijri, {
+                    language: root.language,
+                    numerals: root.numerals,
+                    format: "Month and day"
+                  })
+                  color: root.contentForeground
+                  font.family: root.contentFont
+                  font.pixelSize: Math.round(Style.font.displayLarge * 1.55)
+                  font.bold: true
+                }
               }
 
               Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: Model.formatHijri(root.todayHijri, {
-                  language: root.language,
-                  numerals: root.numerals,
-                  format: "Month and day"
-                })
-                color: root.contentForeground
+                width: parent.width
+                text: Model.formatGregorianLong(root.todayGregorian, root.language, root.numerals)
+                color: root.mutedForeground
                 font.family: root.contentFont
-                font.pixelSize: Math.round(Style.font.displayLarge * 1.55)
-                font.bold: true
+                font.pixelSize: Style.font.subtitle
+                horizontalAlignment: Text.AlignHCenter
               }
             }
 
-            Text {
-              width: parent.width
-              text: Model.formatGregorianLong(root.todayGregorian, root.language, root.numerals)
-              color: root.mutedForeground
-              font.family: root.contentFont
-              font.pixelSize: Style.font.subtitle
-              horizontalAlignment: Text.AlignHCenter
+            PanelActionButton {
+              anchors.top: parent.top
+              anchors.right: parent.right
+              size: Style.space(34)
+              iconText: "󰒓"
+              tooltipText: Model.settingText("settings", root.language)
+              foreground: root.mutedForeground
+              hoverColor: root.accentColor
+              fontFamily: Style.font.family
+              onClicked: root.openSettings()
             }
           }
 
@@ -513,6 +559,36 @@ Panel {
             font.pixelSize: Style.font.caption
           }
         }
+      }
+
+      SettingsPane {
+        id: settingsPane
+        visible: root.mode === "settings"
+        anchors.fill: parent
+        bar: root.bar
+        settings: root.settings
+        defaults: Model.settingsDefaults()
+        fields: Model.settingsFields(root.language)
+        title: Model.settingText("settings", root.language)
+        applyLabel: Model.settingText("apply", root.language)
+        resetLabel: Model.settingText("reset", root.language)
+        showBackButton: true
+        backTooltip: Model.settingText("calendar", root.language)
+        fontFamily: root.contentFont
+        foreground: root.contentForeground
+        accent: root.accentColor
+        rightToLeft: root.language === "ar"
+        numberFormatter: function(value) {
+          var localized = Model.localizeNumber(Math.abs(value), root.language, root.numerals)
+          if (value > 0) return "+" + localized
+          if (value < 0) return "−" + localized
+          return localized
+        }
+        onApplyRequested: function(values) {
+          if (root.hostWidget) root.hostWidget.saveSettings(values)
+        }
+        onBackRequested: root.openCalendar()
+        onCloseRequested: root.close()
       }
     }
   }

@@ -92,6 +92,141 @@ var NATIVE_DIGITS = {
   bn: "০১২৩৪৫৬৭৮৯"
 }
 
+var SETTINGS_TEXT = {
+  en: {
+    calendar: "Calendar", settings: "Settings", apply: "Apply", reset: "Reset",
+    display: "Bar display", calendarSettings: "Calendar", appearance: "Appearance",
+    language: "Language", numerals: "Numerals", format: "Bar format",
+    showWeekday: "Show weekday", autoUpdate: "Automatic calendar updates",
+    dayOffset: "Local day adjustment", weekStart: "Week starts on",
+    markers: "Islamic date markers", barMarker: "Today's marker in bar",
+    panelPosition: "Panel position", fontFamily: "Font family",
+    fontPlaceholder: "Leave empty to use the Omarchy font",
+    automatic: "Automatic", english: "English", arabic: "Arabic", turkish: "Turkish",
+    bengali: "Bengali", localized: "Localized", latin: "Latin", full: "Full",
+    compact: "Compact", numeric: "Numeric", monthDay: "Month and day",
+    saturday: "Saturday", sunday: "Sunday", monday: "Monday",
+    major: "Major dates", traditional: "Major + traditional", off: "Off",
+    dot: "Dot", name: "Occasion name", anchored: "Anchored", centered: "Centered"
+  },
+  ar: {
+    calendar: "التقويم", settings: "الإعدادات", apply: "تطبيق", reset: "استعادة الافتراضي",
+    display: "العرض في الشريط", calendarSettings: "التقويم", appearance: "المظهر",
+    language: "اللغة", numerals: "الأرقام", format: "صيغة الشريط",
+    showWeekday: "إظهار يوم الأسبوع", autoUpdate: "تحديث بيانات التقويم تلقائيًا",
+    dayOffset: "تعديل اليوم محليًا", weekStart: "بداية الأسبوع",
+    markers: "علامات المناسبات الإسلامية", barMarker: "مناسبة اليوم في الشريط",
+    panelPosition: "موضع النافذة", fontFamily: "الخط",
+    fontPlaceholder: "اتركه فارغًا لاستخدام خط أوماركي",
+    automatic: "تلقائي", english: "الإنجليزية", arabic: "العربية", turkish: "التركية",
+    bengali: "البنغالية", localized: "محلية", latin: "لاتينية", full: "كاملة",
+    compact: "مختصرة", numeric: "رقمية", monthDay: "الشهر واليوم",
+    saturday: "السبت", sunday: "الأحد", monday: "الاثنين",
+    major: "المناسبات الكبرى", traditional: "الكبرى والتقليدية", off: "إيقاف",
+    dot: "نقطة", name: "اسم المناسبة", anchored: "تحت الشريط", centered: "وسط الشاشة"
+  },
+  tr: {
+    calendar: "Takvim", settings: "Ayarlar", apply: "Uygula", reset: "Varsayılanlara dön",
+    display: "Çubuk görünümü", calendarSettings: "Takvim", appearance: "Görünüm",
+    language: "Dil", numerals: "Rakamlar", format: "Çubuk biçimi",
+    showWeekday: "Haftanın gününü göster", autoUpdate: "Takvim verilerini otomatik güncelle",
+    dayOffset: "Yerel gün ayarı", weekStart: "Haftanın ilk günü",
+    markers: "İslami gün işaretleri", barMarker: "Bugünün çubuk işareti",
+    panelPosition: "Panel konumu", fontFamily: "Yazı tipi",
+    fontPlaceholder: "Omarchy yazı tipini kullanmak için boş bırakın",
+    automatic: "Otomatik", english: "İngilizce", arabic: "Arapça", turkish: "Türkçe",
+    bengali: "Bengalce", localized: "Yerel", latin: "Latin", full: "Tam",
+    compact: "Kısa", numeric: "Sayısal", monthDay: "Ay ve gün",
+    saturday: "Cumartesi", sunday: "Pazar", monday: "Pazartesi",
+    major: "Önemli günler", traditional: "Önemli + geleneksel", off: "Kapalı",
+    dot: "Nokta", name: "Günün adı", anchored: "Çubuğa bağlı", centered: "Ortalanmış"
+  },
+  bn: {
+    calendar: "ক্যালেন্ডার", settings: "সেটিংস", apply: "প্রয়োগ", reset: "ডিফল্টে ফিরুন",
+    display: "বার প্রদর্শন", calendarSettings: "ক্যালেন্ডার", appearance: "চেহারা",
+    language: "ভাষা", numerals: "সংখ্যা", format: "বার বিন্যাস",
+    showWeekday: "বারের দিন দেখান", autoUpdate: "ক্যালেন্ডার স্বয়ংক্রিয়ভাবে হালনাগাদ করুন",
+    dayOffset: "স্থানীয় দিন সমন্বয়", weekStart: "সপ্তাহ শুরু",
+    markers: "ইসলামি দিনের চিহ্ন", barMarker: "বারে আজকের চিহ্ন",
+    panelPosition: "প্যানেলের অবস্থান", fontFamily: "ফন্ট",
+    fontPlaceholder: "Omarchy ফন্টের জন্য খালি রাখুন",
+    automatic: "স্বয়ংক্রিয়", english: "ইংরেজি", arabic: "আরবি", turkish: "তুর্কি",
+    bengali: "বাংলা", localized: "স্থানীয়", latin: "লাতিন", full: "পূর্ণ",
+    compact: "সংক্ষিপ্ত", numeric: "সংখ্যায়", monthDay: "মাস ও দিন",
+    saturday: "শনিবার", sunday: "রবিবার", monday: "সোমবার",
+    major: "প্রধান দিন", traditional: "প্রধান + ঐতিহ্যগত", off: "বন্ধ",
+    dot: "বিন্দু", name: "দিনের নাম", anchored: "বারের সাথে", centered: "মাঝখানে"
+  }
+}
+var LANGUAGE_SETTING_CHOICES = ["Auto", "English", "العربية", "Türkçe", "বাংলা"]
+var NUMERAL_CHOICES = ["Native", "Latin"]
+var FORMAT_CHOICES = ["Full", "Compact", "Numeric", "Month and day"]
+var WEEK_START_CHOICES = ["Auto", "Saturday", "Sunday", "Monday"]
+var MARKER_MODE_CHOICES = ["Major dates", "Major + traditional", "Off"]
+var BAR_MARKER_CHOICES = ["Off", "Dot", "Name"]
+var PANEL_POSITION_CHOICES = ["Anchored", "Centered"]
+var SETTINGS_DEFAULTS = {
+  language: "Auto", numerals: "Native", format: "Full", showWeekday: false,
+  autoUpdate: true, dayOffset: 0, weekStart: "Auto", markers: "Major dates",
+  barMarker: "Off", panelPosition: "Anchored", fontFamily: ""
+}
+
+function settingText(key, language) {
+  var table = SETTINGS_TEXT[language] || SETTINGS_TEXT.en
+  return table[key] || SETTINGS_TEXT.en[key] || key
+}
+
+function settingOptions(values, labels, language) {
+  return values.map(function(value, index) {
+    return { value: value, label: settingText(labels[index], language) }
+  })
+}
+
+function settingsDefaults() {
+  return SETTINGS_DEFAULTS
+}
+
+function settingsFields(language) {
+  var lang = ["en", "ar", "tr", "bn"].indexOf(language) >= 0 ? language : "en"
+  return [
+    { group: settingText("display", lang), key: "language", type: "enum",
+      label: settingText("language", lang), options: settingOptions(
+        LANGUAGE_SETTING_CHOICES,
+        ["automatic", "english", "arabic", "turkish", "bengali"], lang) },
+    { group: settingText("display", lang), key: "numerals", type: "enum",
+      label: settingText("numerals", lang), options: settingOptions(
+        NUMERAL_CHOICES, ["localized", "latin"], lang) },
+    { group: settingText("display", lang), key: "format", type: "enum",
+      label: settingText("format", lang), options: settingOptions(
+        FORMAT_CHOICES,
+        ["full", "compact", "numeric", "monthDay"], lang) },
+    { group: settingText("display", lang), key: "showWeekday", type: "boolean",
+      label: settingText("showWeekday", lang) },
+    { group: settingText("display", lang), key: "barMarker", type: "enum",
+      label: settingText("barMarker", lang), options: settingOptions(
+        BAR_MARKER_CHOICES, ["off", "dot", "name"], lang) },
+
+    { group: settingText("calendarSettings", lang), key: "dayOffset", type: "integer",
+      label: settingText("dayOffset", lang), minimum: -2, maximum: 2, step: 1 },
+    { group: settingText("calendarSettings", lang), key: "weekStart", type: "enum",
+      label: settingText("weekStart", lang), options: settingOptions(
+        WEEK_START_CHOICES,
+        ["automatic", "saturday", "sunday", "monday"], lang) },
+    { group: settingText("calendarSettings", lang), key: "markers", type: "enum",
+      label: settingText("markers", lang), options: settingOptions(
+        MARKER_MODE_CHOICES,
+        ["major", "traditional", "off"], lang) },
+    { group: settingText("calendarSettings", lang), key: "autoUpdate", type: "boolean",
+      label: settingText("autoUpdate", lang) },
+
+    { group: settingText("appearance", lang), key: "panelPosition", type: "enum",
+      label: settingText("panelPosition", lang), options: settingOptions(
+        PANEL_POSITION_CHOICES, ["anchored", "centered"], lang) },
+    { group: settingText("appearance", lang), key: "fontFamily", type: "string",
+      label: settingText("fontFamily", lang), placeholder: settingText("fontPlaceholder", lang) }
+  ]
+}
+
 var OBSERVANCE_NAMES = {
   newYear: {
     en: "Islamic New Year", ar: "رأس السنة الهجرية", tr: "Hicri Yılbaşı", bn: "ইসলামি নববর্ষ"
@@ -490,23 +625,23 @@ function normalizeEnum(value, allowed, fallback) {
 }
 
 function normalizeNumerals(value) {
-  return normalizeEnum(value, ["Native", "Latin"], "Native")
+  return normalizeEnum(value, NUMERAL_CHOICES, SETTINGS_DEFAULTS.numerals)
 }
 
 function normalizeFormat(value) {
-  return normalizeEnum(value, ["Full", "Compact", "Numeric", "Month and day"], "Full")
+  return normalizeEnum(value, FORMAT_CHOICES, SETTINGS_DEFAULTS.format)
 }
 
 function normalizeMarkerMode(value) {
-  return normalizeEnum(value, ["Major dates", "Major + traditional", "Off"], "Major dates")
+  return normalizeEnum(value, MARKER_MODE_CHOICES, SETTINGS_DEFAULTS.markers)
 }
 
 function normalizeBarMarker(value) {
-  return normalizeEnum(value, ["Off", "Dot", "Name"], "Off")
+  return normalizeEnum(value, BAR_MARKER_CHOICES, SETTINGS_DEFAULTS.barMarker)
 }
 
 function normalizePanelPosition(value) {
-  return normalizeEnum(value, ["Anchored", "Centered"], "Anchored")
+  return normalizeEnum(value, PANEL_POSITION_CHOICES, SETTINGS_DEFAULTS.panelPosition)
 }
 
 function localizeNumber(value, language, numeralSetting, minDigits) {
@@ -580,7 +715,7 @@ function gregorianMonthName(month, language, shortName) {
 }
 
 function normalizeWeekStart(setting, localeFirstDay) {
-  var value = String(setting || "Auto")
+  var value = normalizeEnum(setting, WEEK_START_CHOICES, SETTINGS_DEFAULTS.weekStart)
   if (value === "Saturday") return 6
   if (value === "Sunday") return 0
   if (value === "Monday") return 1

@@ -11,16 +11,17 @@ BarWidget {
 
   property date displayDate: clock.date
   readonly property int calendarRevision: calendarUpdater.activeRevision
+  readonly property var settingDefaults: Model.settingsDefaults()
 
-  readonly property string language: Model.normalizeLanguage(setting("language", "Auto"), Qt.locale().name)
-  readonly property string numerals: Model.normalizeNumerals(setting("numerals", "Native"))
-  readonly property string configuredFormat: Model.normalizeFormat(setting("format", "Full"))
-  readonly property bool showWeekday: setting("showWeekday", false) === true
-  readonly property int dayOffset: Model.clampOffset(setting("dayOffset", 0))
-  readonly property string configuredFont: String(setting("fontFamily", ""))
-  readonly property string markerMode: Model.normalizeMarkerMode(setting("markers", "Major dates"))
-  readonly property string barMarkerMode: Model.normalizeBarMarker(setting("barMarker", "Off"))
-  readonly property bool automaticUpdates: setting("autoUpdate", true) === true
+  readonly property string language: Model.normalizeLanguage(setting("language", settingDefaults.language), Qt.locale().name)
+  readonly property string numerals: Model.normalizeNumerals(setting("numerals", settingDefaults.numerals))
+  readonly property string configuredFormat: Model.normalizeFormat(setting("format", settingDefaults.format))
+  readonly property bool showWeekday: setting("showWeekday", settingDefaults.showWeekday) === true
+  readonly property int dayOffset: Model.clampOffset(setting("dayOffset", settingDefaults.dayOffset))
+  readonly property string configuredFont: String(setting("fontFamily", settingDefaults.fontFamily))
+  readonly property string markerMode: Model.normalizeMarkerMode(setting("markers", settingDefaults.markers))
+  readonly property string barMarkerMode: Model.normalizeBarMarker(setting("barMarker", settingDefaults.barMarker))
+  readonly property bool automaticUpdates: setting("autoUpdate", settingDefaults.autoUpdate) === true
   readonly property var todayHijri: {
     root.calendarRevision
     return Model.hijriForDate(displayDate, dayOffset)
@@ -65,10 +66,10 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
 
-  function persistSetting(key, value) {
+  function saveSettings(values) {
     var entry = { id: root.moduleName }
     for (var existing in root.settings) if (existing !== "id") entry[existing] = root.settings[existing]
-    entry[key] = value
+    for (var key in values) entry[key] = values[key]
     root.settings = entry
     if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
       root.bar.shell.updateEntryInline(root.moduleName, entry)
@@ -76,7 +77,7 @@ BarWidget {
 
   function cycleFormat() {
     var current = formatRing.indexOf(configuredFormat)
-    persistSetting("format", formatRing[(current + 1 + formatRing.length) % formatRing.length])
+    saveSettings({ format: formatRing[(current + 1 + formatRing.length) % formatRing.length] })
   }
 
   function tooltip() {
