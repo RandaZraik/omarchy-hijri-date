@@ -47,6 +47,31 @@ function settingOptions(key) {
   return manifest.barWidget.schema.find(entry => entry.key === key).options;
 }
 
+test("keeps popup settings synchronized with the manifest", () => {
+  const fields = plain(model.settingsFields("en"));
+  const fieldsByKey = new Map(fields.map(field => [field.key, field]));
+
+  assert.deepEqual(plain(model.settingsDefaults()), manifest.barWidget.defaults);
+  assert.equal(fieldsByKey.size, fields.length, "popup setting keys must be unique");
+  assert.deepEqual(
+    [...fieldsByKey.keys()].sort(),
+    manifest.barWidget.schema.map(entry => entry.key).sort()
+  );
+
+  for (const entry of manifest.barWidget.schema) {
+    const field = fieldsByKey.get(entry.key);
+    assert.equal(field.type, entry.type, `${entry.key} has the wrong popup editor`);
+
+    if (entry.type === "enum")
+      assert.deepEqual(field.options.map(option => option.value), entry.options);
+    else if (entry.type === "integer") {
+      assert.equal(field.minimum, entry.min);
+      assert.equal(field.maximum, entry.max);
+      assert.equal(field.step, entry.step);
+    }
+  }
+});
+
 test("matches every month in the pinned KACST snapshot", () => {
   assert.equal(official.firstHijriYear, model.MIN_HIJRI_YEAR);
   assert.equal(official.lastHijriYear, model.MAX_HIJRI_YEAR);

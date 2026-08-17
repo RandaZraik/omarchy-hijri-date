@@ -33,6 +33,8 @@ Replace `omarchy.clock` if you use a custom clock ID.
 
 ## Options
 
+Change every option from Settings in the popup.
+
 | Setting | Key | Choices |
 | --- | --- | --- |
 | Language | `language` | Auto, English, العربية, Türkçe, বাংলা |
