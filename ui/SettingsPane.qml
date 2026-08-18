@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 
@@ -25,10 +26,26 @@ FocusScope {
   property bool editorsActive: false
 
   readonly property bool dirty: JSON.stringify(draft) !== JSON.stringify(savedValues)
+  readonly property var fieldGroups: groupFields(fields)
 
   signal applyRequested(var values)
   signal backRequested()
   signal closeRequested()
+
+  function groupFields(values) {
+    var groups = []
+    var source = values || []
+    for (var index = 0; index < source.length; index++) {
+      var field = source[index]
+      var last = groups.length > 0 ? groups[groups.length - 1] : null
+      if (!last || last.title !== field.group) {
+        last = { title: field.group, fields: [] }
+        groups.push(last)
+      }
+      last.fields.push(field)
+    }
+    return groups
+  }
 
   function mergedValues(source) {
     var result = Util.cloneJson(defaults || {})
@@ -59,6 +76,7 @@ FocusScope {
   }
 
   function setValue(key, value) {
+    if (valueFor(key) === value) return
     var next = Util.cloneJson(draft)
     next[key] = value
     draft = next
@@ -76,7 +94,7 @@ FocusScope {
 
   function focusFirst() {
     if (!visible) return
-    if (!editorsActive || fieldRepeater.count === 0) {
+    if (!editorsActive || groupRepeater.count === 0) {
       Qt.callLater(root.focusFirst)
       return
     }
@@ -98,7 +116,7 @@ FocusScope {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: Style.space(44)
+    height: Style.space(54)
 
     Row {
       anchors.left: parent.left
@@ -114,6 +132,14 @@ FocusScope {
         foreground: root.accent
         fontFamily: root.fontFamily
         onClicked: root.backRequested()
+      }
+
+      Rectangle {
+        width: Style.space(3)
+        height: Style.space(25)
+        anchors.verticalCenter: parent.verticalCenter
+        radius: width / 2
+        color: root.accent
       }
 
       Text {
@@ -132,7 +158,7 @@ FocusScope {
       spacing: Style.space(6)
 
       Button {
-        height: Style.space(34)
+        height: Style.space(36)
         text: root.resetLabel
         foreground: root.foreground
         fontFamily: root.fontFamily
@@ -146,7 +172,7 @@ FocusScope {
       }
 
       Button {
-        height: Style.space(34)
+        height: Style.space(36)
         text: root.applyLabel
         iconText: "󰄬"
         foreground: root.foreground
@@ -170,7 +196,7 @@ FocusScope {
     anchors.right: parent.right
     anchors.top: header.bottom
     foreground: root.foreground
-    strength: 0.13
+    strength: 0.2
   }
 
   Flickable {
@@ -178,49 +204,110 @@ FocusScope {
     anchors.right: parent.right
     anchors.top: headerSeparator.bottom
     anchors.bottom: parent.bottom
-    anchors.topMargin: Style.space(8)
+    anchors.topMargin: Style.space(12)
     contentWidth: width
-    contentHeight: form.implicitHeight + Style.space(8)
+    contentHeight: form.implicitHeight + Style.space(12)
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     interactive: contentHeight > height
+    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
     Column {
       id: form
       width: parent.width
-      spacing: Style.space(8)
+      spacing: Style.space(14)
 
       Repeater {
-        id: fieldRepeater
+        id: groupRepeater
 
-        model: root.visible && root.editorsActive ? root.fields : []
+        model: root.visible && root.editorsActive ? root.fieldGroups : []
 
-        delegate: Column {
-          id: fieldDelegate
+        delegate: Rectangle {
+          id: groupCard
           required property var modelData
           required property int index
           width: form.width
-          spacing: Style.space(6)
+          height: groupContent.implicitHeight + Style.space(24)
+          radius: Style.cornerRadius
+          color: Util.alpha(root.foreground, 0.028)
+          border.width: 1
+          border.color: Util.alpha(root.foreground, 0.16)
 
-          PanelSectionHeader {
-            visible: fieldDelegate.index === 0
-              || fieldDelegate.modelData.group !== root.fields[fieldDelegate.index - 1].group
-            width: parent.width
-            topPadding: visible && fieldDelegate.index > 0 ? Style.space(12) : 0
-            text: fieldDelegate.modelData.group
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-          }
+          Column {
+            id: groupContent
 
-          Loader {
-            id: editorLoader
+            anchors.fill: parent
+            anchors.margins: Style.space(12)
+            spacing: Style.space(10)
 
-            width: parent.width
-            property var field: fieldDelegate.modelData
-            sourceComponent: field.type === "boolean" ? booleanEditor
-              : field.type === "integer" ? integerEditor
-              : field.type === "string" ? stringEditor
-              : enumEditor
+            Item {
+              width: parent.width
+              height: Style.space(28)
+
+              Rectangle {
+                width: Style.space(3)
+                height: Style.space(22)
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                radius: width / 2
+                color: Util.alpha(root.accent, 0.92)
+              }
+
+              Text {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: Style.space(12)
+                anchors.verticalCenter: parent.verticalCenter
+                text: groupCard.modelData.title
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.subtitle
+                font.bold: true
+                horizontalAlignment: Text.AlignLeft
+                elide: Text.ElideRight
+              }
+            }
+
+            PanelSeparator {
+              width: parent.width
+              foreground: root.foreground
+              strength: 0.16
+            }
+
+            Column {
+              width: parent.width
+              spacing: Style.space(10)
+
+              Repeater {
+                model: groupCard.modelData.fields
+
+                delegate: Column {
+                  id: fieldDelegate
+
+                  required property var modelData
+                  required property int index
+
+                  width: parent.width
+                  spacing: Style.space(10)
+
+                  PanelSeparator {
+                    visible: fieldDelegate.index > 0
+                    width: parent.width
+                    foreground: root.foreground
+                    strength: 0.08
+                  }
+
+                  Loader {
+                    width: parent.width
+                    property var field: fieldDelegate.modelData
+                    sourceComponent: field.type === "boolean" ? booleanEditor
+                      : field.type === "integer" ? integerEditor
+                      : field.type === "string" ? stringEditor
+                      : enumEditor
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -237,14 +324,30 @@ FocusScope {
       spacing: Style.space(5)
       readonly property var field: parent.field
 
-      Text {
+      Column {
         width: parent.width
-        text: parent.field.label
-        color: root.foreground
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
-        horizontalAlignment: Text.AlignLeft
+        spacing: Style.space(3)
+
+        Text {
+          width: parent.width
+          text: enumEditorRoot.field.label
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+          horizontalAlignment: Text.AlignLeft
+        }
+
+        Text {
+          visible: text !== ""
+          width: parent.width
+          text: enumEditorRoot.field.description || ""
+          color: Util.alpha(root.foreground, 0.62)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+          horizontalAlignment: Text.AlignLeft
+        }
       }
 
       Dropdown {
@@ -254,6 +357,7 @@ FocusScope {
         showLabel: false
         value: root.valueFor(parent.field.key)
         options: parent.field.options || []
+        rowHeight: Style.space(36)
         foreground: root.foreground
         accent: root.accent
         fontFamily: root.fontFamily
@@ -269,6 +373,7 @@ FocusScope {
       width: parent.width
       readonly property var field: parent.field
       label: field.label
+      description: field.description || ""
       checked: root.valueFor(field.key) === true
       foreground: root.foreground
       accent: root.accent
@@ -287,9 +392,11 @@ FocusScope {
       width: parent.width
       readonly property var field: parent.field
       readonly property bool useDiscreteChoices: field.maximum - field.minimum <= 8
+      readonly property bool hasDescription: field.description !== undefined && field.description !== ""
       height: useDiscreteChoices
-        ? fieldLabel.implicitHeight + choiceGroup.implicitHeight + Style.space(26)
-        : Style.space(66)
+        ? fieldLabel.implicitHeight + fieldDescription.implicitHeight + choiceGroup.implicitHeight
+          + Style.space(hasDescription ? 42 : 26)
+        : Style.space(hasDescription ? 88 : 66)
       activeFocusOnTab: !useDiscreteChoices
       radius: Style.cornerRadius
       color: Util.alpha(root.foreground, 0.035)
@@ -331,6 +438,23 @@ FocusScope {
         font.bold: true
         horizontalAlignment: Text.AlignLeft
         elide: Text.ElideRight
+      }
+
+      Text {
+        id: fieldDescription
+        visible: numberEditor.hasDescription
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: fieldLabel.bottom
+        anchors.leftMargin: Style.space(12)
+        anchors.rightMargin: Style.space(12)
+        anchors.topMargin: Style.space(4)
+        text: parent.field.description || ""
+        color: Util.alpha(root.foreground, 0.62)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+        horizontalAlignment: Text.AlignLeft
       }
 
       Text {
@@ -396,14 +520,30 @@ FocusScope {
       spacing: Style.space(5)
       readonly property var field: parent.field
 
-      Text {
+      Column {
         width: parent.width
-        text: parent.field.label
-        color: root.foreground
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
-        horizontalAlignment: Text.AlignLeft
+        spacing: Style.space(3)
+
+        Text {
+          width: parent.width
+          text: stringEditorRoot.field.label
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+          horizontalAlignment: Text.AlignLeft
+        }
+
+        Text {
+          visible: text !== ""
+          width: parent.width
+          text: stringEditorRoot.field.description || ""
+          color: Util.alpha(root.foreground, 0.62)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+          horizontalAlignment: Text.AlignLeft
+        }
       }
 
       TextField {
@@ -415,6 +555,7 @@ FocusScope {
         foreground: root.foreground
         accent: root.accent
         font.family: root.fontFamily
+        onTextEdited: root.setValue(parent.field.key, text)
         onEditingFinished: root.setValue(parent.field.key, text.trim())
       }
     }
