@@ -30,7 +30,7 @@ jobs:
         run: |
           node tests/check-upstream.js --write --report "$RUNNER_TEMP/calendar-update.md"
           cat "$RUNNER_TEMP/calendar-update.md" >> "$GITHUB_STEP_SUMMARY"
-          if git diff --quiet -- calendar-data.json Model.js README.md; then
+          if git diff --quiet -- calendar-data.json lib/Model.js README.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -51,7 +51,7 @@ jobs:
           git fetch origin \
             "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH" || true
           git switch -C "$UPDATE_BRANCH"
-          git add calendar-data.json Model.js README.md
+          git add calendar-data.json lib/Model.js README.md
           git commit -m "chore: update KACST calendar data"
           git push --force-with-lease="refs/heads/$UPDATE_BRANCH" \
             origin "HEAD:refs/heads/$UPDATE_BRANCH"

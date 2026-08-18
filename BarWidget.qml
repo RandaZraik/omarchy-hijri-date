@@ -3,7 +3,8 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "Model.js" as Model
+import "lib/Model.js" as Model
+import "state" as State
 
 BarWidget {
   id: root
@@ -109,7 +110,7 @@ BarWidget {
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
 
-  CalendarUpdater {
+  State.CalendarUpdater {
     id: calendarUpdater
     automaticUpdates: root.automaticUpdates
   }
@@ -128,7 +129,7 @@ BarWidget {
   Loader {
     id: panelLoader
     active: true
-    source: Qt.resolvedUrl("Panel.qml")
+    source: Qt.resolvedUrl("ui/Panel.qml")
     visible: false
     onLoaded: {
       root.injectPanel()

@@ -7,7 +7,7 @@ const vm = require("node:vm");
 
 const ROOT = path.join(__dirname, "..");
 const DATA_PATH = path.join(ROOT, "calendar-data.json");
-const MODEL_PATH = path.join(ROOT, "Model.js");
+const MODEL_PATH = path.join(ROOT, "lib", "Model.js");
 const README_PATH = path.join(ROOT, "README.md");
 const snapshot = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
 const API_BASE = snapshot.conversionSource;
