@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.randazraik.hijri-date",
   "name": "Hijri Date",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Randa Zraik",
   "license": "MIT",
   "description": "A multilingual Umm al-Qura Hijri date and calendar for the Omarchy bar.",
