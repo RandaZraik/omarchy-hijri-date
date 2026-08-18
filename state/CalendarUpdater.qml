@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import "Model.js" as Model
+import "../lib/Model.js" as Model
 
 // Downloads data only. Executable QML always comes from the installed plugin.
 QtObject {

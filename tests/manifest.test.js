@@ -31,9 +31,10 @@ test("includes the runtime, marketplace, and legal assets", () => {
   const requiredAssets = [
     "manifest.json",
     manifest.entryPoints.barWidget,
-    "CalendarUpdater.qml",
-    "Panel.qml",
-    "Model.js",
+    "state/CalendarUpdater.qml",
+    "ui/Panel.qml",
+    "ui/SettingsPane.qml",
+    "lib/Model.js",
     "calendar-data.json",
     "preview.png",
     "README.md",

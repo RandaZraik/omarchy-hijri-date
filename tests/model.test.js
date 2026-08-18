@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "..", "Model.js"), "utf8")
+const source = fs.readFileSync(path.join(__dirname, "..", "lib", "Model.js"), "utf8")
   .replace(/^\.pragma library\s*\n/, "");
 
 function loadModel() {
