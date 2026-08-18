@@ -1,0 +1,97 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without the v prefix, for example 0.2.0
+        required: true
+        type: string
+      target:
+        description: Branch or full commit SHA to release
+        required: true
+        default: master
+        type: string
+      previous_tag:
+        description: Optional tag where generated notes should begin
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use x.y.z without a v prefix" >&2
+            exit 1
+          fi
+
+          MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+          if [[ "$MANIFEST_VERSION" != "$VERSION" ]]; then
+            echo "manifest.json is $MANIFEST_VERSION, not $VERSION" >&2
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists without a release" >&2
+            exit 1
+          fi
+
+      - name: Run tests
+        run: |
+          node --check tests/check-upstream.js
+          node --test tests/*.test.js
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          PREVIOUS_TAG: ${{ inputs.previous_tag }}
+        run: |
+          TAG="v$VERSION"
+          TARGET_SHA=$(git rev-parse HEAD)
+          ARGS=(
+            "$TAG"
+            --draft
+            --fail-on-no-commits
+            --generate-notes
+            --target "$TARGET_SHA"
+            --title "Hijri Date $VERSION"
+          )
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            ARGS+=(--notes-start-tag "$PREVIOUS_TAG")
+          fi
+
+          RELEASE_URL=$(gh release create "${ARGS[@]}")
+          {
+            echo "## Draft release ready"
+            echo
+            echo "Review and edit [$TAG]($RELEASE_URL) under Releases."
+            echo "Nothing is published until you click **Publish release**."
+          } >> "$GITHUB_STEP_SUMMARY"
