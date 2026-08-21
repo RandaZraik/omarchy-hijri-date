@@ -18,10 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: master
-      - uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
 
@@ -48,11 +49,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin \
+          git fetch --depth=1 --no-tags origin \
             "$UPDATE_BRANCH:refs/remotes/origin/$UPDATE_BRANCH" || true
           git switch -C "$UPDATE_BRANCH"
           git add calendar-data.json lib/Model.js README.md
           git commit -m "chore: update KACST calendar data"
+          gh auth setup-git
           git push --force-with-lease="refs/heads/$UPDATE_BRANCH" \
             origin "HEAD:refs/heads/$UPDATE_BRANCH"
 
