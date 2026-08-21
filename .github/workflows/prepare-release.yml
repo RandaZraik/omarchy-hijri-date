@@ -17,23 +17,27 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: prepare-release
   cancel-in-progress: false
 
 jobs:
-  draft:
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.validated.outputs.target_sha }}
+      version: ${{ steps.validated.outputs.version }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.target }}
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
 
@@ -63,19 +67,35 @@ jobs:
             exit 1
           fi
 
+      - name: Record validated release
+        id: validated
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "target_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Run tests
         run: |
           node --check tests/check-upstream.js
           node --test tests/*.test.js
 
+  draft:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
       - name: Create draft release
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ needs.validate.outputs.target_sha }}
+          VERSION: ${{ needs.validate.outputs.version }}
           PREVIOUS_TAG: ${{ inputs.previous_tag }}
         run: |
           TAG="v$VERSION"
-          TARGET_SHA=$(git rev-parse HEAD)
           ARGS=(
             "$TAG"
             --draft
